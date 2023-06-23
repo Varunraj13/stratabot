@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>StrataBot</title>
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        .loading-icon {
+            display: none;
+            text-align: center;
+        }
+
+        .loading-icon img {
+            width: 50px;
+        }
+
+        .chat-response {
+            position: relative;
+        }
+
+        #promptToggle {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+        }
+
+        #prompts {
+            display: none;
+            text-align: center;
+        }
+
+        #downloads {
+            display: none;
+            text-align: center;
+        }
+
+        .file-upload {
+            display: none;
+        }
+
+        .upload-label {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+            margin-top: 8px;
+        }
+
+        .upload-label:hover {
+            background-color: #0056b3;
+        }
+
+        /* Additional Styles */
+        .hamburger-container {
+            position: relative;
+        }
+
+        .hamburger-menu {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+        }
+
+        .hamburger-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: #f9f9f9;
+            padding: 10px;
+            border: 1px solid #ddd;
+            z-index: 1;
+        }
+
+        #historyToggle {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translate(0, -50%);
+            cursor: pointer;
+        }
+
+        #history {
+            display: none;
+            text-align: center;
+        }
+
+        #history h2 {
+            margin-top: 0;
+        }
+
+        #chatHistory {
+            margin-top: 20px;
+        }
+
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            var user_input = '';
+            var fileData;
+
+            function showLoading() {
+                $('.loading-icon').show();
+                $('#downloads').hide();
+            }
+
+            function hideLoading() {
+                $('.loading-icon').hide();
+                $('#downloads').show();
+            }
+
+            function generateResponseAndDownload(session_id, user_input) {
+                showLoading();
+
+                $.ajax({
+                    type: 'POST',
+                    url: '/chat',
+                    data: {
+                        user_input: user_input,
+                        session_id: session_id
+                    },
+                    success: function(response) {
+                        var chatbot_response = response.response;
+
+                        $('#chatbox').append('<p><strong>User:</strong> ' + user_input + '</p>');
+                        $('#chatbox').append('<p><strong>ChatGPT Bot:</strong> ' + chatbot_response + '</p>');
+
+                        $('#user_input').val('');
+
+                        // Show download links
+                        $('#downloads').show();
+                        hideLoading();
+                        $('#chatbox').scrollTop($('#chatbox')[0].scrollHeight);
+
+                        // Update the chatbox element to display the response
+                        $('#chatbox').html($('#chatbox').html());
+                    }
+                });
+            }
+
+
+            function downloadPDF(session_id) {
+                window.location.href = '/download/pdf/' + session_id;
+            }
+
+            function downloadDocx(session_id) {
+                window.location.href = '/download/docx/' + session_id;
+            }
+
+            function uploadFile(event) {
+                var file = event.target.files[0];
+                var session_id = $('#session_id').val();
+                var formData = new FormData();
+                formData.append('file', file);
+                formData.append('session_id', session_id);
+
+                showLoading();
+
+                $.ajax({
+                    type: 'POST',
+                    url: '/upload',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        $('#chatbox').append('<p><strong>File Uploaded:</strong> ' + file.name + '</p>');
+
+                        // Generate chatbot response for the uploaded file
+                        var fileQuery = 'Tell me about the file: ' + file.name;
+                        generateResponseAndDownload(session_id, fileQuery);
+
+                        // Show download links
+                        $('#downloads').show();
+                        hideLoading();
+                        $('#chatbox').scrollTop($('#chatbox')[0].scrollHeight);
+
+                        // Update the chatbox element to display the response
+                        $('#chatbox').html($('#chatbox').html());
+                    }
+                });
+            }
+
+            $('#chatForm').submit(function(event) {
+                event.preventDefault();
+
+                var user_input = $('#user_input').val();
+                var session_id = $('#session_id').val();
+
+                if (user_input.trim() === '') {
+                    return false;
+                }
+
+                generateResponseAndDownload(session_id, user_input);
+            });
+
+            $('#pdfButton').click(function() {
+                var session_id = $('#session_id').val();
+                downloadPDF(session_id);
+            });
+
+            $('#docxButton').click(function() {
+                var session_id = $('#session_id').val();
+                downloadDocx(session_id);
+            });
+
+            $('#fileInput').change(function(event) {
+                uploadFile(event);
+            });
+
+            $('#promptToggle').click(function() {
+                $('#prompts').toggle();
+            });
+
+            $('#historyToggle').click(function() {
+                $('#history').toggle();
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div id="historyToggle" class="hamburger-menu">
+            <i class="fa fa-bars"></i>
+        </div>
+        <div id="history" class="hamburger-content">
+            <h2>Chat History</h2>
+            <div id="chatHistory"></div>
+        </div>
+        <div class="chat-response">
+            <div id="chatbox"></div>
+            <div class="loading-icon">
+                <img src="https://www.bing.com/th/id/OGC.aaaf80ba7a992e06d59f870aa2de1cbf?pid=1.7&rurl=https%3a%2f%2ficon-library.com%2fimages%2floading-icon-animated-gif%2floading-icon-animated-gif-7.jpg&ehk=fjn%2bjjM%2fKXL2tL9cbLYLAM1urZHfH1oWH%2f5alM%2bKTtQ%3d" alt="Loading">
+            </div>
+            <form id="chatForm" method="POST" enctype="multipart/form-data">
+                <input type="text" id="user_input" placeholder="Enter your message" required>
+                <input type="text" id="session_id" placeholder="Enter session ID" required>
+                <input type="submit" value="Send">
+                <input type="file" id="fileInput" class="file-upload" accept=".pdf,.doc,.docx,.csv,.txt">
+                <label for="fileInput" class="upload-label">Upload File</label>
+            </form>
+            <div id="downloads">
+                <h2>Downloads</h2>
+                <button id="pdfButton">Download as PDF</button>
+                <button id="docxButton">Download as Word</button>
+            </div>
+        </div>
+        <button id="promptToggle" class="prompt-toggle-button">Click for Prompts</button>
+        <div id="prompts">
+            <h2>Prompts</h2>
+            <div id="promptButtons">
+                % for prompt in prompts:
+                <button class="prompt-button" onclick="sendPrompt('{{prompt}}')">{{prompt}}</button>
+                % end
+            </div>
+        </div>
+    </div>    
+    </div>
+</body>
+</html>
